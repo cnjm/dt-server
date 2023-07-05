@@ -7,6 +7,7 @@ import {
 } from "@nestjs/websockets";
 import { Socket } from "socket.io";
 import { DingtalkService } from "../dingtalk/dingtalk.service";
+import { GameUtils } from "./gameUtils";
 @WebSocketGateway(4000, {
   cors: true,
   namespace: "dingtalk",
@@ -18,15 +19,17 @@ import { DingtalkService } from "../dingtalk/dingtalk.service";
  * 4. 广播&接收对局信息  (创建房间、加入房间、开始游戏等)
  */
 export class DdWebSocketGateway {
-  constructor(private readonly dingtalkService: DingtalkService) {
+  constructor(
+    private readonly dingtalkService: DingtalkService,
+    private readonly gameUtils: GameUtils,
+  ) {
     this.defaultRoom = "三国杀";
     this.roomInfo = {
-      status: 0,
-      // 活跃状态人群
-      activeUserList: [],
+      status: false,
       // 房间成员列表
       roomUserList: [],
     };
+    this.decks = [];
   }
 
   @WebSocketServer()
@@ -37,6 +40,8 @@ export class DdWebSocketGateway {
 
   // 房间信息
   roomInfo: any;
+
+  decks: any;
 
   afterInit() {
     console.log("服务端初始化完成-----");
@@ -124,10 +129,13 @@ export class DdWebSocketGateway {
   }
 
   // 开始游戏
-  async startMatchEvent(socket: Socket) {
-    this.dingtalkService.sendGroupMessages({ message: "" });
+  async startMatchEvent() {
+    this.roomInfo.status = true;
+    this.sendRoomInfo();
+    this.decks = await this.gameUtils.createDeck();
+    console.log(this.decks);
   }
-  // 推送加入对局的人员
+  // 分发操作
   async sendJoinMatchList() {
     // const { items } = await this.dingtalkService.getUserList();
     // const joinUserList = items.filter((item) => {
